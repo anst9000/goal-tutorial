@@ -2,6 +2,7 @@ const mongoose = require('mongoose')
 const asyncHandler = require('express-async-handler')
 
 const Goal = require('../models/goalModel')
+const User = require('../models/userModel')
 
 const checkValidId = id => {
   return !mongoose.Types.ObjectId.isValid(id)
@@ -14,7 +15,7 @@ const checkValidId = id => {
  * @access    Private
  */
 const getGoals = asyncHandler(async (req, res) => {
-  const goals = await Goal.find()
+  const goals = await Goal.find({ user: req.user.id })
 
   res.status(200).json(goals)
 })
@@ -48,7 +49,8 @@ const createGoal = asyncHandler(async (req, res) => {
   }
 
   const goal = await Goal.create({
-    text: req.body.text
+    text: req.body.text,
+    user: req.user.id
   })
 
   res.status(200).json(goal)
@@ -64,6 +66,22 @@ const updateGoal = asyncHandler(async (req, res) => {
   if (checkValidId(req.params.id)) {
     res.status(400)
     throw new Error('Goal not found')
+  }
+
+  const user = await User.findById(req.user.id)
+
+  // Check for user
+  if (!user) {
+    res.status(401)
+    throw new Error('User not found')
+  }
+
+  const goal = await Goal.findById(req.params.id)
+
+  // Make sure the logged in user matches the goal user
+  if (goal.user.toString() !== user.id) {
+    res.status(401)
+    throw new Error('User not authorized')
   }
 
   const updatedGoal = await Goal.findOneAndUpdate(
@@ -89,6 +107,22 @@ const deleteGoal = asyncHandler(async (req, res) => {
     throw new Error('Goal not found')
   }
 
+  const user = await User.findById(req.user.id)
+
+  // Check for user
+  if (!user) {
+    res.status(401)
+    throw new Error('User not found')
+  }
+
+  const goal = await Goal.findById(req.params.id)
+
+  // Make sure the logged in user matches the goal user
+  if (goal.user.toString() !== user.id) {
+    res.status(401)
+    throw new Error('User not authorized')
+  }
+
   await Goal.findOneAndDelete({ _id: req.params.id })
   res.status(200).json({ id: req.params.id })
 })
@@ -100,3 +134,11 @@ module.exports = {
   updateGoal,
   deleteGoal
 }
+
+/*
+skrutte
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzEwNTM3ODM0NjYzMGJlN2Y3Mjk1NiIsImlhdCI6MTY4NTEzNTU5NCwiZXhwIjoxNjg3NzI3NTk0fQ.N22a38yYLCKypcQUKr0yg52zj-eo9TnJV_8qgpMR-Rg
+
+coltla
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0NzEwMDlkNTg4NzMyYTdhMzFhZWEwNyIsImlhdCI6MTY4NTEzNjA2OSwiZXhwIjoxNjg3NzI4MDY5fQ.CMCMRXIrJkDqTf4vfAMmibNjr1F9EVnwEoTJOhL_vU8
+*/
